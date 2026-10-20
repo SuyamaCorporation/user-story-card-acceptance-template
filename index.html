@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>User Story Card & Acceptance Criteria Template Builder</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+<div class="max-w-6xl mx-auto p-4">
+  <h1 class="text-2xl font-bold text-blue-800 mb-4">User Story Card Builder</h1>
+  <div class="flex flex-col lg:flex-row gap-4">
+
+    <!-- Saved Cards Sidebar -->
+    <div class="lg:w-64 flex-shrink-0">
+      <div class="bg-white rounded-lg shadow p-4">
+        <h2 class="font-semibold text-gray-700 mb-2">Saved Cards</h2>
+        <div id="saved-list" class="space-y-2 max-h-96 overflow-y-auto"></div>
+        <button id="new-card-btn" class="mt-3 w-full bg-blue-100 text-blue-700 rounded px-3 py-1 text-sm hover:bg-blue-200">+ New Card</button>
+      </div>
+    </div>
+
+    <!-- Editor -->
+    <div class="flex-1 space-y-4">
+      <div class="bg-white rounded-lg shadow p-4">
+        <h2 class="font-semibold text-gray-700 mb-3">User Story</h2>
+        <div class="space-y-3">
+          <div>
+            <label for="as-a" class="block text-sm font-medium text-gray-600">As a...</label>
+            <input id="as-a" type="text" placeholder="type of user" class="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+          </div>
+          <div>
+            <label for="i-want" class="block text-sm font-medium text-gray-600">I want...</label>
+            <input id="i-want" type="text" placeholder="some goal" class="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+          </div>
+          <div>
+            <label for="so-that" class="block text-sm font-medium text-gray-600">So that...</label>
+            <input id="so-that" type="text" placeholder="some reason" class="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+          </div>
+        </div>
+      </div>
+
+      <!-- Acceptance Criteria -->
+      <div class="bg-white rounded-lg shadow p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold text-gray-700">Acceptance Criteria (Given-When-Then)</h2>
+          <button id="add-gwt" class="bg-green-100 text-green-700 rounded px-3 py-1 text-sm hover:bg-green-200">+ Add Row</button>
+        </div>
+        <div id="gwt-rows" class="space-y-3"></div>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex gap-2 flex-wrap">
+        <button id="save-btn" class="bg-blue-600 text-white rounded px-4 py-2 text-sm hover:bg-blue-700">Save Card</button>
+        <button id="copy-md-btn" class="bg-gray-600 text-white rounded px-4 py-2 text-sm hover:bg-gray-700">Copy as Markdown</button>
+      </div>
+
+      <!-- Preview -->
+      <div class="bg-white rounded-lg shadow p-4">
+        <h2 class="font-semibold text-gray-700 mb-2">Live Preview</h2>
+        <div id="preview" class="text-sm text-gray-800 font-mono whitespace-pre-wrap bg-gray-50 p-3 rounded border border-gray-200 min-h-20"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function escapeHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let cards = JSON.parse(localStorage.getItem('us-cards') || '[]');
+let currentId = null;
+
+function getFormData() {
+  const asA = document.getElementById('as-a').value.trim();
+  const iWant = document.getElementById('i-want').value.trim();
+  const soThat = document.getElementById('so-that').value.trim();
+  const rows = [...document.querySelectorAll('.gwt-row')].map(row => ({
+    given: row.querySelector('.gwt-given').value.trim(),
+    when: row.querySelector('.gwt-when').value.trim(),
+    then: row.querySelector('.gwt-then').value.trim(),
+  }));
+  return { asA, iWant, soThat, rows };
+}
+
+function buildMarkdown(data) {
+  const { asA, iWant, soThat, rows } = data;
+  let md = `## User Story\n\n**As a** ${asA || '___'},\n**I want** ${iWant || '___'},\n**So that** ${soThat || '___'}.\n`;
+  if (rows.length) {
+    md += `\n## Acceptance Criteria\n`;
+    rows.forEach((r, i) => {
+      md += `\n**Scenario ${i+1}:**\n- **Given** ${r.given || '___'}\n- **When** ${r.when || '___'}\n- **Then** ${r.then || '___'}\n`;
+    });
+  }
+  return md;
+}
+
+function updatePreview() {
+  const data = getFormData();
+  document.getElementById('preview').textContent = buildMarkdown(data);
+}
+
+function addGwtRow(given='', when='', then='') {
+  const container = document.getElementById('gwt-rows');
+  const div = document.createElement('div');
+  div.className = 'gwt-row border border-gray-200 rounded p-3 space-y-2 bg-gray-50';
+  div.innerHTML = `
+    <div class="flex gap-2 items-start">
+      <div class="flex-1 space-y-2">
+        <label class="flex items-center gap-2">
+          <span class="w-14 text-xs font-semibold text-gray-500">Given</span>
+          <input type="text" class="gwt-given flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="initial context" value="${escapeHtml(given)}">
+        </label>
+        <label class="flex items-center gap-2">
+          <span class="w-14 text-xs font-semibold text-gray-500">When</span>
+          <input type="text" class="gwt-when flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="action taken" value="${escapeHtml(when)}">
+        </label>
+        <label class="flex items-center gap-2">
+          <span class="w-14 text-xs font-semibold text-gray-500">Then</span>
+          <input type="text" class="gwt-then flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="expected outcome" value="${escapeHtml(then)}">
+        </label>
+      </div>
+      <button class="remove-gwt text-red-400 hover:text-red-600 text-lg leading-none mt-1" aria-label="Remove row">×</button>
+    </div>`;
+  div.querySelector('.remove-gwt').addEventListener('click', () => { div.remove(); updatePreview(); });
+  div.querySelectorAll('input').forEach(i => i.addEventListener('input', updatePreview));
+  container.appendChild(div);
+  updatePreview();
+}
+
+function saveCard() {
+  const data = getFormData();
+  const title = data.asA ? `As a ${data.asA}` : 'Untitled Story';
+  if (currentId !== null) {
+    const idx = cards.findIndex(c => c.id === currentId);
+    if (idx !== -1) { cards[idx] = { ...cards[idx], ...data, title }; }
+  } else {
+    currentId = Date.now();
+    cards.unshift({ id: currentId, ...data, title });
+  }
+  localStorage.setItem('us-cards', JSON.stringify(cards));
+  renderSidebar();
+}
+
+function loadCard(id) {
+  const card = cards.find(c => c.id === id);
+  if (!card) return;
+  currentId = id;
+  document.getElementById('as-a').value = card.asA || '';
+  document.getElementById('i-want').value = card.iWant || '';
+  document.getElementById('so-that').value = card.soThat || '';
+  document.getElementById('gwt-rows').innerHTML = '';
+  (card.rows || []).forEach(r => addGwtRow(r.given, r.when, r.then));
+  updatePreview();
+}
+
+function deleteCard(id) {
+  cards = cards.filter(c => c.id !== id);
+  localStorage.setItem('us-cards', JSON.stringify(cards));
+  if (currentId === id) { newCard(); }
+  renderSidebar();
+}
+
+function newCard() {
+  currentId = null;
+  document.getElementById('as-a').value = '';
+  document.getElementById('i-want').value = '';
+  document.getElementById('so-that').value = '';
+  document.getElementById('gwt-rows').innerHTML = '';
+  updatePreview();
+}
+
+function renderSidebar() {
+  const list = document.getElementById('saved-list');
+  list.innerHTML = '';
+  if (!cards.length) { list.innerHTML = '<p class="text-xs text-gray-400">No saved cards</p>'; return; }
+  cards.forEach(card => {
+    const div = document.createElement('div');
+    div.className = 'flex items-center justify-between bg-gray-50 border border-gray-200 rounded p-2 text-xs';
+    const btn = document.createElement('button');
+    btn.className = 'text-blue-600 hover:underline text-left flex-1 truncate';
+    btn.textContent = card.title;
+    btn.addEventListener('click', () => loadCard(card.id));
+    const del = document.createElement('button');
+    del.className = 'text-red-400 hover:text-red-600 ml-2';
+    del.setAttribute('aria-label', 'Delete card');
+    del.textContent = '×';
+    del.addEventListener('click', (e) => { e.stopPropagation(); deleteCard(card.id); });
+    div.appendChild(btn);
+    div.appendChild(del);
+    list.appendChild(div);
+  });
+}
+
+document.getElementById('add-gwt').addEventListener('click', () => addGwtRow());
+document.getElementById('save-btn').addEventListener('click', saveCard);
+document.getElementById('new-card-btn').addEventListener('click', newCard);
+document.getElementById('copy-md-btn').addEventListener('click', () => {
+  navigator.clipboard.writeText(buildMarkdown(getFormData())).then(() => {
+    const btn = document.getElementById('copy-md-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy as Markdown', 1500);
+  });
+});
+['as-a','i-want','so-that'].forEach(id => document.getElementById(id).addEventListener('input', updatePreview));
+
+// Init
+addGwtRow();
+renderSidebar();
+updatePreview();
+</script>
+</body>
+</html>
